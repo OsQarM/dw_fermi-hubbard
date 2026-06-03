@@ -17,6 +17,38 @@ class QilisdkFermiHubbard:
         self.dt = dt
 
         self.H_tot = self.build_H()
+        self.initialize_chain()
+
+    def initialize_chain(self):
+        self.branches = [(1.0, [0] * self.nqubits)]
+
+    def place_single_excitation(self, chain, site):
+        if chain == 'up':
+            offset = 0
+            assert site < self.chain_length, 'invalid site: select value from 0 to chain_length-1'
+        elif chain == 'down':
+            offset = self.chain_length
+            assert site + self.chain_length < self.nqubits, 'invalid site: select value from 0 to chain_length-1'
+        else:
+            raise ValueError("Invalid chain specified: select 'up' or 'down'")
+
+        idx = site + offset
+        for _, occ in self.branches:
+            occ[idx] = 1
+
+    def place_entangled_pair(self, site1, site2, phase=+1):
+        new_branches = []
+        for amp, occ in self.branches:
+            occ_a = occ.copy(); occ_a[site1] = 1
+            occ_b = occ.copy(); occ_b[site2] = 1
+            new_branches.append((amp, occ_a))
+            new_branches.append((amp*phase, occ_b))
+        self.branches = new_branches
+
+    def build_initial_state(self):
+        psi = sum(amp * tensor_prod([basis_state(b, 2) for b in occ])
+                  for amp, occ in self.branches)
+        return psi.unit() if hasattr(psi, 'unit') else psi
 
     def build_H(self):
         chain_length = self.chain_length
@@ -31,11 +63,9 @@ class QilisdkFermiHubbard:
         return Hz + H_hop_up + H_hop_down + H_int
 
     def run(self):
-        single_qubit_states = [basis_state(1, 2)] + [basis_state(0, 2)]*4 + [basis_state(0, 2)]*4 + [basis_state(1, 2)]
-
         analog_evolution = AnalogEvolution(
             schedule=Schedule.linear(self.H_tot, self.H_tot, total_time=self.T, dt=self.dt),
-            initial_state=tensor_prod(single_qubit_states),
+            initial_state=self.build_initial_state(),
             store_intermediate_results=True,
         )
 
