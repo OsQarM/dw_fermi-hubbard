@@ -1,0 +1,35 @@
+# Simulation parameters for the test notebook.
+#
+# A model is N (qubits per chain) + coefficients for the terms in hamiltonian.TERMS.
+# The physics block is translated to both encodings with Model.from_physics:
+#   jw: N = L,   *_site terms        dw: N = L+1, *_wall terms
+
+physics:
+  L: 4          # fermion sites
+  t: 1.0        # hopping
+  U: 4.0        # Hubbard
+  U_eta: 0.0    # DW-native interaction  U_eta * eta_i n_up n_dn
+  h: 0.0        # electric field         -h * eta_i
+  mu: 0.0       # chemical potential
+  b: 1          # sign of eta (jw) / boundary sector Z_0,dn (dw)
+
+checks:
+  L: 3                                            # size for the jw-vs-dw equivalence tests
+  couplings: {U: 2.0, U_eta: 1.5, h: 0.7, mu: 0.3}
+  approximate_dw:                                 # x_field + zz_chain instead of hop_wall
+    L: 3
+    N_up: 1
+    N_dn: 1
+    Gamma: 1.0
+    J_values: [-5.0, -10.0, -20.0, -40.0]
+
+statics:
+  N_up: 2
+  N_dn: 2
+  n_states: 4
+
+dynamics:
+  T: 4.0
+  dt: 0.05
+  initial_state:                                  # sum of amplitude * |up, down>, normalized
+    - {amplitude: 1.0, up: [1, 1, 0, 0], down: [0, 0, 1, 1]}

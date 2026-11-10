@@ -108,7 +108,7 @@ class BaseFermiHubbard:
 
     def build_pauli_observables(self, pauli_strings):
         up_sites = list(range(0, self.chain_length))
-        down_sites = list(range(self.chain_length, self.nqubits))
+        down_sites = list(range(self.chain_length, 2*self.chain_length))
 
         observables = {}
         for pstr in pauli_strings:
@@ -251,7 +251,7 @@ class DomainWallFermiHubbard(BaseFermiHubbard):
         return H
 
 
-class CustomFermiHubbard(BaseFermiHubbard):
+class HardwareFermiHubbard(BaseFermiHubbard):
     """Skeleton for a third encoding. Fill in the TODOs."""
 
     encoding = "custom"
@@ -262,12 +262,11 @@ class CustomFermiHubbard(BaseFermiHubbard):
         super().__init__(chain_length, t, U, e, T, nsteps)
 
     def _set_system_size(self, chain_length):
-        self.chain_length = chain_length+1
-        # From 0-chain_length-1 is upper chain,
-        # From chain_length to 2*chain_length -1 is lower chain (to make apply_excitation reusable)
-        # From 2*chain_length to 3*chain_length -2 are auxiliary qubits
-        self.nqubits = 3*self.chain_length - 1
-        raise NotImplementedError
+        self.chain_length = chain_length + 1
+        # From 0 to chain_length-1 is upper chain,
+        # From chain_length to 2*chain_length - 1 is lower chain (to make apply_excitation reusable)
+        # From 2*chain_length to 3*chain_length - 2 are auxiliary qubits
+        self.nqubits = 3 * self.chain_length - 1
 
     def _apply_excitation(self, occ, chain, site):
         offset, idx = self._resolve(chain, site)
@@ -279,6 +278,29 @@ class CustomFermiHubbard(BaseFermiHubbard):
             offset, idx = self._resolve(chain, self.chain_length - 1)
             for i in range(offset, idx + 1):
                 occ[i] ^= 1
+
+    def initialize_chain(self):
+        # Branches describe only the 2*chain_length chain qubits; ancillas are
+        # added in |-> at state-construction time in run().
+        self.branches = [(1.0, [0] * (2 * self.chain_length))]
+
+    def run(self, pauli_strings=None):
+        kets = {0: self.ket0, 1: self.ket1}
+        minus = (self.ket0 - self.ket1).unit()
+        n_aux = self.chain_length - 1
+
+        psi_chain = sum(amp * qt.tensor([kets[b] for b in occ])
+                        for amp, occ in self.branches)
+        psi_aux = qt.tensor([minus] * n_aux)
+        self.psi0 = qt.tensor(psi_chain, psi_aux).unit()
+
+        sim = qt.sesolve(self.H, self.psi0, self.t_list)
+
+        if pauli_strings is None:
+            return sim, None
+
+        measurements = self.calculate_pauli_observables(sim, pauli_strings)
+        return sim, measurements
 
     def build_H(self):
         H = 0
