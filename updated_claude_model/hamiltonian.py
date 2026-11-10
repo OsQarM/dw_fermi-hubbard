@@ -29,7 +29,7 @@ Encodings (s = 0 for up, 1 for down; |0> has Z = +1; qubit 0 is the leftmost ten
 """
 from dataclasses import dataclass
 
-from qilisdk.analog import Hamiltonian, X, Y, Z, I
+from qilisdk.analog import Hamiltonian, X, Y, Z, I 
 from ruamel.yaml import YAML
 
 UP, DN = 0, 1
